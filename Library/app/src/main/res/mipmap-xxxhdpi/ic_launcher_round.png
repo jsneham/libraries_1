@@ -1,0 +1,361 @@
+package com.technocodellp.ela.Dynamic;
+
+import android.Manifest;
+import android.app.AlertDialog;
+import android.app.ProgressDialog;
+import android.content.Context;
+import android.content.Intent;
+import android.content.pm.PackageManager;
+import android.content.res.Resources;
+import android.graphics.Color;
+import android.graphics.PorterDuff;
+import android.graphics.drawable.ColorDrawable;
+import android.location.Geocoder;
+import android.location.Location;
+import android.os.CountDownTimer;
+import android.os.Handler;
+import android.os.ResultReceiver;
+import android.support.annotation.NonNull;
+import android.support.v4.app.ActivityCompat;
+import android.support.v4.content.ContextCompat;
+import android.support.v7.app.ActionBar;
+import android.support.v7.app.AppCompatActivity;
+import android.os.Bundle;
+import android.support.v7.widget.Toolbar;
+import android.text.Editable;
+import android.text.TextWatcher;
+import android.util.Log;
+import android.view.KeyEvent;
+import android.view.LayoutInflater;
+import android.view.MenuItem;
+import android.view.View;
+import android.view.ViewGroup;
+import android.widget.Button;
+import android.widget.CheckBox;
+import android.widget.CompoundButton;
+import android.widget.EditText;
+import android.widget.FrameLayout;
+import android.widget.ImageView;
+import android.widget.LinearLayout;
+import android.widget.ProgressBar;
+import android.widget.TextView;
+import android.widget.Toast;
+
+import com.android.volley.Request;
+import com.android.volley.RequestQueue;
+import com.android.volley.Response;
+import com.android.volley.TimeoutError;
+import com.android.volley.VolleyError;
+import com.android.volley.toolbox.StringRequest;
+import com.android.volley.toolbox.Volley;
+import com.bumptech.glide.Glide;
+import com.google.android.gms.ads.AdListener;
+import com.google.android.gms.ads.AdRequest;
+import com.google.android.gms.ads.AdView;
+import com.google.android.gms.ads.MobileAds;
+import com.google.android.gms.ads.reward.RewardItem;
+import com.google.android.gms.ads.reward.RewardedVideoAd;
+import com.google.android.gms.ads.reward.RewardedVideoAdListener;
+import com.google.android.gms.location.FusedLocationProviderClient;
+import com.google.android.gms.location.LocationCallback;
+import com.google.android.gms.location.LocationRequest;
+import com.google.android.gms.location.LocationResult;
+import com.google.android.gms.location.LocationServices;
+import com.technocodellp.ela.Activity.GetAddressIntentService;
+import com.technocodellp.ela.Activity.ScoreCardActivity;
+import com.technocodellp.ela.Model.CorrectAnswer;
+import com.technocodellp.ela.Model.Options;
+import com.technocodellp.ela.Model.QuestionsModel;
+import com.technocodellp.ela.R;
+import com.technocodellp.ela.Utility.LocationTrack;
+import com.technocodellp.ela.Utility.SessionManager;
+import com.technocodellp.ela.Utility.URLs;
+
+import org.json.JSONArray;
+import org.json.JSONObject;
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.concurrent.TimeUnit;
+
+import pl.droidsonroids.gif.AnimationListener;
+import pl.droidsonroids.gif.GifDrawable;
+import pl.droidsonroids.gif.GifImageView;
+
+public class TaskActivity extends AppCompatActivity implements View.OnClickListener, AnimationListener {
+
+    private static final String AD_UNIT_ID = "ca-app-pub-8545287756352660/6648787144";
+    private GifDrawable gifDrawable;
+    GifImageView gifImageView;
+
+    ArrayList<String> listOfattemptedQuestions;
+    ProgressDialog progressDialog;
+    private FusedLocationProviderClient fusedLocationClient;
+    String company_id;
+    private static final int LOCATION_PERMISSION_REQUEST_CODE = 2;
+
+    private LocationAddressResultReceiver addressResultReceiver;
+
+    private TextView currentAddTv;
+
+    private Location currentLocation;
+
+    private LocationCallback locationCallback;
+    Toolbar toolbar;
+    int question_postion;
+    int question_count = 0;
+    ActionBar actionBar;
+    SessionManager sessionManager;
+    Context context = this;
+    ImageView ivQuestion;
+    String title, cat_id, topic_id, name;
+    public ArrayList<CorrectAnswer> cAns;
+    public ArrayList<String> cAns1;
+    ArrayList<String> ansList = new ArrayList<>();
+    private ProgressBar progressBarCircle, progressBar;
+    private TextView textViewTime;
+    LinearLayout btnReview, btnHint;
+    public ArrayList<QuestionsModel> questionsModels;
+    public ArrayList<Options> options;
+    TextView tvQuestion, optionA, optionB, optionC, optionD, answer_mcq_final, tvQuestionHint;
+    CheckBox optionA1, optionB1, optionC1, optionD1;
+    TextView etAnswer;
+    FrameLayout questions_framelayout;
+    View chapterInflater;
+    ViewGroup container;
+    LinearLayout a, b, c, d, a1, b1, c1, d1, answer_mcq, multiple, single;
+    View view_review;
+    private long timeCountInMilliSeconds = 60 * 1000;
+    private TimerStatus timerStatus = TimerStatus.STOPPED;
+    int correct_anser_count, incorrect_anser_count, skip_count = 0;
+    private long total_time_taken, Resumetotal_time_taken = 0;
+    String locationAddress = "";
+    LocationTrack locationTrack;
+    int resume_skip, resume_incorrect, resume_correct = 0;
+    private AdView mAdView, adView1;
+    ImageView ivHeart1, ivHeart2, ivHeart3;
+    int showVideoAdOnce = 0;
+    // final String[]   given_correct_answer = { "" };
+    int wrongansweMethoutExcute = 0;
+
+    //  private RewardedVideoAd mRewardedVideoAd ;
+//    private RewardedAd rewardedAd;
+    private RewardedVideoAd rewardedAd;
+    int reward = 0;
+
+    @Override
+    public void onAnimationCompleted(int loopNumber) {
+        final View view = view_review;
+        final String[] given_correct_answer = {""};
+//        if (view != null) {
+        if (gifDrawable.isPlaying()) {
+            gifDrawable.stop();
+        } else {
+            gifDrawable.start();
+        }
+        gifImageView.setVisibility(View.GONE);
+
+        if (wrongansweMethoutExcute == 0) {
+            wrongAnswer(given_correct_answer);
+        } else if (wrongansweMethoutExcute == 1) {
+            wrongAnswerOne(given_correct_answer);
+        } else {
+            openFailedTextPopup();
+        }
+
+//            Snackbar.make(view, "Animation stopp", Snackbar.LENGTH_SHORT).show();
+//        }
+    }
+
+    private enum TimerStatus {
+        STARTED,
+        STOPPED
+    }
+
+    private CountDownTimer countDownTimer;
+    long timeCheck = 0;
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_premium_task);
+        sessionManager = new SessionManager(context);
+        getIntentData();
+        getToolBar();
+        init();
+        //setAdMob ();
+        askLocationPermissionForUsingLocation();
+        progressDialog = new ProgressDialog(context);
+        progressDialog.setMessage("Loading....");
+        progressDialog.show();
+        preapreList();
+       // openVideoGainHeart();
+        // loadRewardedAd();
+    }
+
+    private void resetAnimation() {
+        gifDrawable.stop();
+        gifDrawable.setLoopCount(4);
+        // gifDrawable.seekToFrameAndGet(5);
+        //toggleButton.setChecked(false);
+    }
+
+    private void toggleAnimation() {
+        if (gifDrawable.isPlaying()) {
+            gifDrawable.stop();
+        } else {
+            gifDrawable.start();
+        }
+    }
+
+    private void init() {
+        gifImageView = (GifImageView) findViewById(R.id.ivAnimHeart);
+        gifDrawable = (GifDrawable) gifImageView.getDrawable();
+        gifDrawable.addAnimationListener(this);
+        resetAnimation();
+        progressBar = (ProgressBar) findViewById(R.id.progressBar);
+        textViewTime = (TextView) findViewById(R.id.textViewTime);
+        btnReview = (LinearLayout) findViewById(R.id.btnReview);
+        btnHint = (LinearLayout) findViewById(R.id.btnHint);
+        ivHeart1 = (ImageView) findViewById(R.id.ivHeart1);
+        ivHeart2 = (ImageView) findViewById(R.id.ivHeart2);
+        ivHeart3 = (ImageView) findViewById(R.id.ivHeart3);
+        // tvQuestion= (TextView) findViewById(R.id.tvQuestion);
+        questions_framelayout = (FrameLayout) findViewById(R.id.questions_framelayout);
+        btnReview.setOnClickListener(this);
+        btnHint.setOnClickListener(this);
+        mAdView = (AdView) findViewById(R.id.adView);
+        adView1 = (AdView) findViewById(R.id.adView1);
+        company_id = sessionManager.getFromSessionManager(SessionManager.COMPANY);
+        if (company_id.equals("0"))
+            setAdMob();
+    }
+
+    private void getIntentData() {
+        title = getIntent().getStringExtra("title");
+        topic_id = getIntent().getStringExtra("topic_id");
+        cat_id = getIntent().getStringExtra("cat_id");
+        name = getIntent().getStringExtra("name");
+        listOfattemptedQuestions = new ArrayList<>();
+    }
+
+    private void getToolBar() {
+        toolbar = (Toolbar) findViewById(R.id.abMain);
+        setSupportActionBar(toolbar);
+        actionBar = getSupportActionBar();
+        actionBar.setDisplayHomeAsUpEnabled(true);
+        // actionBar.setHomeAsUpIndicator(R.drawable.ic_close);
+        actionBar.setTitle(name);
+    }
+
+    public void askLocationPermissionForUsingLocation() {
+        addressResultReceiver = new LocationAddressResultReceiver(new Handler());
+        fusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
+        locationCallback = new LocationCallback() {
+            @Override
+            public void onLocationResult(LocationResult locationResult) {
+                currentLocation = locationResult.getLocations().get(0);
+                getAddress();
+            }
+
+            ;
+        };
+        startLocationUpdates();
+    }
+
+    @SuppressWarnings("MissingPermission")
+    private void startLocationUpdates() {
+        if (ContextCompat.checkSelfPermission(this,
+                Manifest.permission.ACCESS_FINE_LOCATION)
+                != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(this,
+                    new String[]{Manifest.permission.ACCESS_FINE_LOCATION},
+                    LOCATION_PERMISSION_REQUEST_CODE);
+        } else {
+            LocationRequest locationRequest = new LocationRequest();
+            locationRequest.setInterval(2000);
+            locationRequest.setFastestInterval(1000);
+            locationRequest.setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY);
+            fusedLocationClient.requestLocationUpdates(locationRequest,
+                    locationCallback,
+                    null);
+        }
+    }
+
+    @SuppressWarnings("MissingPermission")
+    private void getAddress() {
+        if (!Geocoder.isPresent()) {
+            Toast.makeText(TaskActivity.this,
+                    "Can't find current address, ",
+                    Toast.LENGTH_SHORT).show();
+            return;
+        }
+        Intent intent = new Intent(TaskActivity.this, GetAddressIntentService.class);
+        intent.putExtra("add_receiver", addressResultReceiver);
+        intent.putExtra("add_location", currentLocation);
+        startService(intent);
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions,
+                                           @NonNull int[] grantResults) {
+        switch (requestCode) {
+            case LOCATION_PERMISSION_REQUEST_CODE: {
+                if (grantResults.length > 0
+                        && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                    startLocationUpdates();
+                } else {
+                    Toast.makeText(this, "Location permission not granted, " +
+                                    "restart the app if you want the feature",
+                            Toast.LENGTH_SHORT).show();
+                }
+                return;
+            }
+        }
+    }
+
+    private void preapreList() {
+        String URL = URLs.get_call_etiquette;
+        StringRequest stringRequest = new StringRequest(Request.Method.POST, URL, new Response.Listener<String>() {
+            @Override
+            public void onResponse(String response) {
+                try {
+                    progressDialog.dismiss();
+                    int q_no = 0;
+                    questionsModels = new ArrayList<>();
+                    // JSONArray jsonArray = new JSONArray(response);
+                    JSONObject jsonArray = new JSONObject(response);
+                    JSONArray questions_list = null;
+                    JSONArray resume_data = null;
+                    for (int s = 0; s < jsonArray.length(); s++) {
+                        questions_list = new JSONArray(jsonArray.get("questions_list").toString());
+                        resume_data = new JSONArray(jsonArray.get("resume_data").toString());
+                        q_no = Integer.parseInt(jsonArray.get("question_no").toString());
+                    }
+                    if (resume_data.length() > 0) {
+                        for (int r = 0; r < resume_data.length(); r++) {
+                            resume_skip = Integer.parseInt(resume_data.getJSONObject(r).get("skipped").toString());
+                            resume_correct = Integer.parseInt(resume_data.getJSONObject(r).get("correct").toString());
+                            resume_incorrect = Integer.parseInt(resume_data.getJSONObject(r).get("incorrect").toString());
+                            Resumetotal_time_taken = Integer.parseInt(resume_data.getJSONObject(r).get("time_taken").toString());
+                            resume_correct = Integer.parseInt(resume_data.getJSONObject(r).get("marks").toString());
+                            String ques_num = resume_data.getJSONObject(r).get("questions").toString();
+                            String[] ques_no = ques_num.split(",");
+                            for (int m = 0; m < ques_no.length; m++) {
+                                listOfattemptedQuestions.add(ques_no[m]);
+                            }
+                        }
+                    } else {
+                        resume_skip = 0;
+                        resume_correct = 0;
+                        resume_incorrect = 0;
+                        Resumetotal_time_taken = 0;
+                    }
+                    if (questions_list.length() > 0 && questions_list != null) {
+                        for (int i = 0; i < questions_list.length(); i++) {
+                            String question_id = questions_list.getJSONObject(i).get("question_id").toString();
+                            String question_type = questions_list.getJSONObject(i).get("question_type").toString();
+                            String sub_question_type = questions_list.getJSONObject(i).get("sub_question_type").toString();
+                            String question_title =
